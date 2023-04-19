@@ -1,0 +1,3 @@
+﻿Compound,Formula,Adduct,m/z,z,RT Time (min),Window (min),HCD Collision Energies (%)
+MRFA,C23H37N7O5S,+H,524.265,1,30,60,30
+MRFA,,(no adduct),524.265,1,30,60,30
