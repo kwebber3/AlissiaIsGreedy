@@ -61,7 +61,7 @@ ExclusionList = pd.DataFrame({"Compound": [],
 for index, eachRow in AllData.iterrows():
     currentProtein = eachRow["Master Protein Accessions"]
     currentSequence = re.sub("\\]\\.","",eachRow["Annotated Sequence"])
-    currentSequence = re.sub("\\.\\[[a-z\\-\\+]\\]","",currentSequence)
+    currentSequence = re.sub("\\.\\[[A-z\\-\\+]\\]","",currentSequence)
     currentSequence = re.sub("[a-z]","",currentSequence)
     currentSequence = re.sub("\\[","",currentSequence)
     if currentProtein not in Proteins_Included and currentSequence not in Peptides_Included:
