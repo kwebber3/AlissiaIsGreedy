@@ -3,14 +3,14 @@ import re
 
 
 #Change these each time
-#FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
-#OUTPUT_FILE_NAME = "TMT_Inclusion_List.csv" 
-FILE_PATH_AND_NAME = "LFQ_HCD_Scan-(1)_PSMs.txt"  #LFQ
-OUTPUT_FILE_NAME = "LFQ_Inclusion_List.csv"
+FILE_PATH_AND_NAME = "allTogether_FromFailed_PSMs.txt"  #Andi
+INC_OUTPUT_FILE_NAME = "Andikan_InclusionList.csv"
+EXC_OUTPUT_FILE_NAME = "Andikan_ExclusionList.csv"
 
 #Compound names
 FIRST_EXTENSION = "_01"
 FULL_EXTENSION = "_02"
+MAX_PEPTIDES = 5
 
 #output assumptions
 ADDUCT = "+H" #Almost always true
@@ -42,9 +42,21 @@ InclusionList = pd.DataFrame({"Compound": [],
                               "RT Time (min)": [],
                               "Window (min)": []
                               })
+
 Proteins_Included = []
 Proteins_Full = []
 Peptides_Included = []
+Peptides_Excluded = []
+TimesSeen = {}
+
+ExclusionList = pd.DataFrame({"Compound": [],
+                              "Formula": [],
+                              "Adduct": [],
+                              "m/z": [],
+                              "z": [],
+                              "RT Time (min)": [],
+                              "Window (min)": []
+                              })
 
 for index, eachRow in AllData.iterrows():
     currentProtein = eachRow["Master Protein Accessions"]
@@ -55,35 +67,51 @@ for index, eachRow in AllData.iterrows():
     if currentProtein not in Proteins_Included and currentSequence not in Peptides_Included:
         Proteins_Included.append(currentProtein)
         Peptides_Included.append(currentSequence)
+        TimesSeen[currentProtein] = 1
         newRow = {"Compound": [str(currentProtein) + FIRST_EXTENSION],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["Theo. MH+ [Da]"]],
                   "z": [eachRow["Charge"]],
                   "RT Time (min)": [eachRow["RT [min]"]],
-                  "Window (min)": [RT_WINDOW],
-                  "HCD Collision Energies (%)": [eachRow["NCE [%]"]]
+                  "Window (min)": [RT_WINDOW]
                   }
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
     elif currentProtein not in Proteins_Full and currentSequence not in Peptides_Included:
         Peptides_Included.append(currentSequence)
         Proteins_Full.append(currentProtein)
+        TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
         newRow = {"Compound": [str(currentProtein) + FULL_EXTENSION],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["Theo. MH+ [Da]"]],
                   "z": [eachRow["Charge"]],
                   "RT Time (min)": [eachRow["RT [min]"]],
-                  "Window (min)": [RT_WINDOW],
-                  "HCD Collision Energies (%)": [eachRow["NCE [%]"]]
+                  "Window (min)": [RT_WINDOW]
                   }
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
+    else:
+        TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
+        if TimesSeen[currentProtein] > MAX_PEPTIDES and currentSequence not in Peptides_Excluded:
+            Peptides_Excluded.append(currentSequence)
+            newRow = {"Compound": [str(currentProtein) + "_" + str(TimesSeen[currentProtein])],
+                  "Formula": [currentSequence],
+                  "Adduct": [ADDUCT],
+                  "m/z": [eachRow["Theo. MH+ [Da]"]],
+                  "z": [eachRow["Charge"]],
+                  "RT Time (min)": [eachRow["RT [min]"]],
+                  "Window (min)": [RT_WINDOW]
+                  }
+            ExclusionList = pd.concat([ExclusionList, pd.DataFrame(newRow)], ignore_index = True)
+
 
 #Print number of proteins with each number of identifications
 print(newRow) #to see format
 print(len(Proteins_Included)) # 1st peptide
 print(len(Proteins_Full)) # 2nd peptide
 print(len(InclusionList.index)) # Total peptides
+print(len(ExclusionList)) #peptides excluded
 
 #Export to csv
-InclusionList.to_csv(OUTPUT_FILE_NAME, index=False)
+InclusionList.to_csv(INC_OUTPUT_FILE_NAME, index=False)
+ExclusionList.to_csv(EXC_OUTPUT_FILE_NAME, index=False)
