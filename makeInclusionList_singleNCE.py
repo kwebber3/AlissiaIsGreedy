@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 
+#Required Columns "PSMs Workflow ID"	"PSMs Peptide ID"	"Confidence"	"Identifying Node"	"PSM Ambiguity"	"Annotated Sequence"	"Modifications"	"# Proteins"	"Master Protein Accessions"	"Protein Accessions"	"# Missed Cleavages"	"Charge"	"Rank"	"m/z [Da]"	"Contaminant"	"MH+ [Da]"	"Theo. MH+ [Da]"	"Activation Type"	"NCE [%]"	"Ion Inject Time [ms]"	"RT [min]"	"First Scan"	"Spectrum File"	"Percolator q-Value"	"Percolator PEP"
 
 #Change these each time
 FILE_PATH_AND_NAME = "allTogether_FromFailed_PSMs.txt"  #Andi

@@ -1,6 +1,7 @@
 import pandas as pd
 import re
 
+#Required Columns "PSMs Workflow ID"	"PSMs Peptide ID"	"Confidence"	"Identifying Node"	"PSM Ambiguity"	"Annotated Sequence"	"Modifications"	"# Proteins"	"Master Protein Accessions"	"Protein Accessions"	"# Missed Cleavages"	"Charge"	"Rank"	"m/z [Da]"	"Contaminant"	"MH+ [Da]"	"Theo. MH+ [Da]"	"Activation Type"	"NCE [%]"	"Ion Inject Time [ms]"	"RT [min]"	"First Scan"	"Spectrum File"	"Percolator q-Value"	"Percolator PEP"
 
 #Change these each time
 FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
@@ -11,8 +12,7 @@ EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv"
 #EXC_OUTPUT_FILE_NAME = "LFQ_Exclusion_List.csv" 
 
 #Compound names
-FIRST_EXTENSION = "_01"
-FULL_EXTENSION = "_02"
+MIN_PEPTIDES = 2
 MAX_PEPTIDES = 5
 
 #output assumptions
@@ -70,7 +70,9 @@ for index, eachRow in AllData.iterrows():
         Proteins_Included.append(currentProtein)
         Peptides_Included.append(currentSequence)
         TimesSeen[currentProtein] = 1
-        newRow = {"Compound": [str(currentProtein) + FIRST_EXTENSION],
+        if TimesSeen[currentProtein] >= MIN_PEPTIDES:
+            Proteins_Full.append(currentProtein)
+        newRow = {"Compound": [str(currentProtein) + "1"],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["Theo. MH+ [Da]"]],
@@ -83,8 +85,9 @@ for index, eachRow in AllData.iterrows():
     elif currentProtein not in Proteins_Full and currentSequence not in Peptides_Included:
         TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
         Peptides_Included.append(currentSequence)
-        Proteins_Full.append(currentProtein)
-        newRow = {"Compound": [str(currentProtein) + FULL_EXTENSION],
+        if TimesSeen[currentProtein] >= MIN_PEPTIDES:
+            Proteins_Full.append(currentProtein)
+        newRow = {"Compound": [str(currentProtein) + str(TimesSeen)],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["Theo. MH+ [Da]"]],
@@ -95,6 +98,10 @@ for index, eachRow in AllData.iterrows():
                   }
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
     else:
+        if currentProtein in TimesSeen.keys():
+            TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
+        else:
+            TimesSeen[currentProtein] = 1
         if TimesSeen[currentProtein] > MAX_PEPTIDES and currentSequence not in Peptides_Excluded:
             Peptides_Excluded.append(currentSequence)
             newRow = {"Compound": [str(currentProtein) + "_" + str(TimesSeen[currentProtein])],
@@ -106,10 +113,6 @@ for index, eachRow in AllData.iterrows():
                   "Window (min)": [RT_WINDOW],
                   }
             ExclusionList = pd.concat([ExclusionList, pd.DataFrame(newRow)], ignore_index = True)
-        if currentProtein in TimesSeen.keys():
-            TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
-        else:
-            TimesSeen[currentProtein] = 1
 
 #Print number of proteins with each number of identifications
 print(newRow) #to see format
