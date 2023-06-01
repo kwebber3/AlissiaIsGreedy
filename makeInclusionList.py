@@ -72,7 +72,7 @@ for index, eachRow in AllData.iterrows():
         TimesSeen[currentProtein] = 1
         if TimesSeen[currentProtein] >= MIN_PEPTIDES:
             Proteins_Full.append(currentProtein)
-        newRow = {"Compound": [str(currentProtein) + "1"],
+        newRow = {"Compound": [re.sub(",","", str(currentProtein)) + "_1"],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["Theo. MH+ [Da]"]],
@@ -87,7 +87,7 @@ for index, eachRow in AllData.iterrows():
         Peptides_Included.append(currentSequence)
         if TimesSeen[currentProtein] >= MIN_PEPTIDES:
             Proteins_Full.append(currentProtein)
-        newRow = {"Compound": [str(currentProtein) + str(TimesSeen)],
+        newRow = {"Compound": [str(currentProtein) + str(TimesSeen[currentProtein])],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["Theo. MH+ [Da]"]],
@@ -102,7 +102,7 @@ for index, eachRow in AllData.iterrows():
             TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
         else:
             TimesSeen[currentProtein] = 1
-        if TimesSeen[currentProtein] > MAX_PEPTIDES and currentSequence not in Peptides_Excluded:
+        if TimesSeen[currentProtein] > MAX_PEPTIDES and currentSequence not in Peptides_Excluded and currentSequence not in Peptides_Included:
             Peptides_Excluded.append(currentSequence)
             newRow = {"Compound": [str(currentProtein) + "_" + str(TimesSeen[currentProtein])],
                   "Formula": [currentSequence],
