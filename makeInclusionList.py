@@ -1,27 +1,31 @@
 import pandas as pd
 import re
 
-#Required Columns "PSMs Workflow ID"	"PSMs Peptide ID"	"Confidence"	"Identifying Node"	"PSM Ambiguity"	"Annotated Sequence"	"Modifications"	"# Proteins"	"Master Protein Accessions"	"Protein Accessions"	"# Missed Cleavages"	"Charge"	"Rank"	"m/z [Da]"	"Contaminant"	"MH+ [Da]"	"Theo. MH+ [Da]"	"Activation Type"	"NCE [%]"	"Ion Inject Time [ms]"	"RT [min]"	"First Scan"	"Spectrum File"	"Percolator q-Value"	"Percolator PEP"
+#Required Columns "PSMs Workflow ID"	"PSMs Peptide ID"	"Confidence"	"Identifying Node"	"PSM Ambiguity"	"Annotated Sequence"
+# 	"Modifications"	"# Proteins"	"Master Protein Accessions"	"Protein Accessions"	"# Missed Cleavages"	"Charge"	"Rank"	"m/z [Da]"	
+# "Contaminant"	"MH+ [Da]"	"Theo. MH+ [Da]"x	"Activation Type"	"NCE [%]"	"Ion Inject Time [ms]"	"RT [min]"	"First Scan"	"Spectrum File"
+# 	"Percolator q-Value"	"Percolator PEP"
 
 #Change these each time
-FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
-INC_OUTPUT_FILE_NAME = "TMT_Inclusion_List.csv" 
-EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv" 
-#FILE_PATH_AND_NAME = "LFQ_HCD_Scan-(1)_PSMs.txt"  #LFQ
-#INC_OUTPUT_FILE_NAME = "LFQ_Inclusion_List.csv"
-#EXC_OUTPUT_FILE_NAME = "LFQ_Exclusion_List.csv" 
+#PSM_FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
+#INC_OUTPUT_FILE_NAME = "TMT_Inclusion_List.csv" 
+#EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv" 
+PSM_FILE_PATH_AND_NAME = "LFQ_HCD_Scan-(1)_PSMs.txt"  #LFQ
+INC_OUTPUT_FILE_NAME = "LFQ_Inclusion_List.csv"
+EXC_OUTPUT_FILE_NAME = "LFQ_Exclusion_List.csv" 
 
 #Compound names
 MIN_PEPTIDES = 2
-MAX_PEPTIDES = 5
+MAX_PEPTIDES = 20
 
 #output assumptions
 ADDUCT = "+H" #Almost always true
 RT_WINDOW = 5 #Dr. Kelly says this is a good amount
+GRADIENT_LENGTH = 65
 
 #Import data
 
-AllData = pd.read_table(FILE_PATH_AND_NAME, delimiter="\t")
+AllData = pd.read_table(PSM_FILE_PATH_AND_NAME, delimiter="\t")
 
 #Filter
 AllData = AllData[(AllData["Contaminant"] == False) &
@@ -66,6 +70,10 @@ for index, eachRow in AllData.iterrows():
     currentSequence = re.sub("\\.\\[[A-z\\-\\+]\\]","",currentSequence)
     currentSequence = re.sub("[a-z]","",currentSequence)
     currentSequence = re.sub("\\[","",currentSequence)
+    currentSequence = re.sub("\\.","",currentSequence)
+    currentSequence = re.sub("\\]","",currentSequence)
+    currentSequence = re.sub("\\+","",currentSequence)
+    currentSequence = re.sub("\\-","",currentSequence)
     if currentProtein not in Proteins_Included and currentSequence not in Peptides_Included:
         Proteins_Included.append(currentProtein)
         Peptides_Included.append(currentSequence)
@@ -75,12 +83,16 @@ for index, eachRow in AllData.iterrows():
         newRow = {"Compound": [re.sub(",","", str(currentProtein)) + "_1"],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
-                  "m/z": [eachRow["Theo. MH+ [Da]"]],
-                  "z": [eachRow["Charge"]],
+                  "m/z": [eachRow["m/z [Da]"]],
+                  "z": [int(eachRow["Charge"])],
                   "RT Time (min)": [eachRow["RT [min]"]],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [eachRow["NCE [%]"]]
                   }
+        if newRow["RT Time (min)"][0] <= RT_WINDOW/2: #ELUTES TOO SOON
+            newRow["RT Time (min)"] = [RT_WINDOW/2 + 0.01]
+        if newRow["RT Time (min)"][0] >= GRADIENT_LENGTH - RT_WINDOW/2: #ELUTES TOO LATE
+            newRow["RT Time (min)"] = [GRADIENT_LENGTH - (RT_WINDOW/2 + 0.01)]
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
     elif currentProtein not in Proteins_Full and currentSequence not in Peptides_Included:
         TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
@@ -90,16 +102,22 @@ for index, eachRow in AllData.iterrows():
         newRow = {"Compound": [str(currentProtein) + str(TimesSeen[currentProtein])],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
-                  "m/z": [eachRow["Theo. MH+ [Da]"]],
-                  "z": [eachRow["Charge"]],
+                  "m/z": [eachRow["m/z [Da]"]],
+                  "z": [int(eachRow["Charge"])],
                   "RT Time (min)": [eachRow["RT [min]"]],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [eachRow["NCE [%]"]]
                   }
+        if newRow["RT Time (min)"][0] <= RT_WINDOW/2: #ELUTES TOO SOON
+            newRow["RT Time (min)"] = [RT_WINDOW/2 + 0.01]
+        if newRow["RT Time (min)"][0] >= GRADIENT_LENGTH - RT_WINDOW/2: #ELUTES TOO LATE
+            newRow["RT Time (min)"] = [GRADIENT_LENGTH - (RT_WINDOW/2 + 0.01)]
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
     else:
-        if currentProtein in TimesSeen.keys():
+        if currentProtein in TimesSeen.keys() and currentSequence not in Peptides_Excluded and currentSequence not in Peptides_Included:
             TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
+        elif currentProtein in TimesSeen.keys(): #peptide already counted
+            pass
         else:
             TimesSeen[currentProtein] = 1
         if TimesSeen[currentProtein] > MAX_PEPTIDES and currentSequence not in Peptides_Excluded and currentSequence not in Peptides_Included:
@@ -107,11 +125,15 @@ for index, eachRow in AllData.iterrows():
             newRow = {"Compound": [str(currentProtein) + "_" + str(TimesSeen[currentProtein])],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
-                  "m/z": [eachRow["Theo. MH+ [Da]"]],
-                  "z": [eachRow["Charge"]],
+                  "m/z": [eachRow["m/z [Da]"]],
+                  "z": [int(eachRow["Charge"])],
                   "RT Time (min)": [eachRow["RT [min]"]],
                   "Window (min)": [RT_WINDOW],
                   }
+            if newRow["RT Time (min)"][0] <= RT_WINDOW/2: #ELUTES TOO SOON
+                newRow["RT Time (min)"] = [RT_WINDOW/2 + 0.01]
+            if newRow["RT Time (min)"][0] >= GRADIENT_LENGTH - RT_WINDOW/2: #ELUTES TOO LATE
+                newRow["RT Time (min)"] = [GRADIENT_LENGTH - (RT_WINDOW/2 + 0.01)]
             ExclusionList = pd.concat([ExclusionList, pd.DataFrame(newRow)], ignore_index = True)
 
 #Print number of proteins with each number of identifications
