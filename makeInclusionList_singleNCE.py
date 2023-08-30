@@ -72,7 +72,7 @@ for index, eachRow in AllData.iterrows():
         newRow = {"Compound": [str(currentProtein) + FIRST_EXTENSION],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
-                  "m/z": [eachRow["Theo. MH+ [Da]"]],
+                  "m/z": [eachRow["m/z [Da]"]],
                   "z": [eachRow["Charge"]],
                   "RT Time (min)": [eachRow["RT [min]"]],
                   "Window (min)": [RT_WINDOW]
@@ -85,7 +85,7 @@ for index, eachRow in AllData.iterrows():
         newRow = {"Compound": [str(currentProtein) + FULL_EXTENSION],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
-                  "m/z": [eachRow["Theo. MH+ [Da]"]],
+                  "m/z": [eachRow["m/z [Da]"]],
                   "z": [eachRow["Charge"]],
                   "RT Time (min)": [eachRow["RT [min]"]],
                   "Window (min)": [RT_WINDOW]
@@ -98,7 +98,7 @@ for index, eachRow in AllData.iterrows():
             newRow = {"Compound": [str(currentProtein) + "_" + str(TimesSeen[currentProtein])],
                   "Formula": [currentSequence],
                   "Adduct": [ADDUCT],
-                  "m/z": [eachRow["Theo. MH+ [Da]"]],
+                  "m/z": [eachRow["m/z [Da]"]],
                   "z": [eachRow["Charge"]],
                   "RT Time (min)": [eachRow["RT [min]"]],
                   "Window (min)": [RT_WINDOW]

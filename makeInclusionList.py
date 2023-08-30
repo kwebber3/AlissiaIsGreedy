@@ -37,7 +37,7 @@ AllData = AllData[(AllData["Contaminant"] == False) &
 #Finds an average QValue and sorts from lowest to highest
 AllData["Average q-value"] = AllData.groupby("NCE [%]")["Percolator q-Value"].transform("mean")
 
-AllData.sort_values(by="Average q-value")
+AllData = AllData.sort_values(by="Average q-value")
 
 
 #Adds the proteins and peptides in order of increasing confidence
