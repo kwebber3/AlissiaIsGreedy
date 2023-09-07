@@ -40,7 +40,7 @@ for eachFolder in run_folders:
 print(allPSM.shape)
 # filter data
 badPSM = allPSM[(allPSM["Protein"].str.contains("contam_sp")) |
-                # (allPSM["PeptideProphet Probability"] >= 0.99) &
+                # (allPSM["PeptideProphet Probability"] < 0.99) &
                 (allPSM["Is Unique"] == False) |
                 (allPSM["Number of Missed Cleavages"] > 0)]
 
@@ -84,7 +84,6 @@ badPSM = badPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0
                                         count = ("Spectrum File", "count")).reset_index()
 
 badPSM["rt_range"] = badPSM["rt_max"] - badPSM["rt_min"]
-# allPSM["missingValueRate"] = 100* (total_files - allPSM["count"]) / total_files
 badPSM["mz_error"] = (badPSM["mz"] - badPSM["mz_calc"]) / badPSM["mz_calc"]
 
 #Adds the proteins and peptides in order of increasing confidence
