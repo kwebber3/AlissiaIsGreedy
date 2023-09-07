@@ -39,31 +39,53 @@ for eachFolder in run_folders:
 
 print(allPSM.shape)
 # filter data
+badPSM = allPSM[(allPSM["Protein"].str.contains("contam_sp")) |
+                # (allPSM["PeptideProphet Probability"] >= 0.99) &
+                (allPSM["Is Unique"] == False) |
+                (allPSM["Number of Missed Cleavages"] > 0)]
+
+
 allPSM = allPSM[~(allPSM["Protein"].str.contains("contam_sp")) &
-                (allPSM["PeptideProphet Probability"] >= 0.99) &
+                # (allPSM["PeptideProphet Probability"] >= 0.99) &
                 (allPSM["Is Unique"] == True) &
                 (allPSM["Number of Missed Cleavages"] == 0)]
 
 
+print(allPSM.shape)
+print(badPSM.shape)
 
 allPSM = allPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0]),
-                               retention = ("Retention", "mean"),
-                               rt_stdev = ("Retention", "std"),
-                               rt_max = ("Retention", "max"),
-                               rt_min = ("Retention", "min"),
-                               mz = ("Observed M/Z", "mean"),
-                               mz_calc = ("Calculated M/Z", "mean"),
-                               charge = ("Charge", "mean"),
-                               count = ("Spectrum File", "count")).reset_index()
+                                        conf = ("PeptideProphet Probability","mean"),                                       
+                                        retention = ("Retention", "mean"),
+                                        rt_stdev = ("Retention", "std"),
+                                        rt_max = ("Retention", "max"),
+                                        rt_min = ("Retention", "min"),
+                                        mz = ("Observed M/Z", "mean"),
+                                        mz_calc = ("Calculated M/Z", "mean"),
+                                        charge = ("Charge", "mean"),
+                                        count = ("Spectrum File", "count")).reset_index()
 
 allPSM["rt_range"] = allPSM["rt_max"] - allPSM["rt_min"]
-allPSM["missingValueRate"] = 100* (total_files - allPSM["count"]) / total_files
+# allPSM["missingValueRate"] = 100* (total_files - allPSM["count"]) / total_files
 allPSM["mz_error"] = (allPSM["mz"] - allPSM["mz_calc"]) / allPSM["mz_calc"]
 
-allPSM = allPSM[(allPSM["missingValueRate"] >= 0)]
-allPSM = allPSM.sort_values(by="missingValueRate")
+# allPSM = allPSM[(allPSM["missingValueRate"] <= 30)]
+allPSM = allPSM.sort_values(by="conf",ascending=False)
 
-print(allPSM)
+badPSM = badPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0]),
+                                        conf = ("PeptideProphet Probability","mean"),                                       
+                                        retention = ("Retention", "mean"),
+                                        rt_stdev = ("Retention", "std"),
+                                        rt_max = ("Retention", "max"),
+                                        rt_min = ("Retention", "min"),
+                                        mz = ("Observed M/Z", "mean"),
+                                        mz_calc = ("Calculated M/Z", "mean"),
+                                        charge = ("Charge", "mean"),
+                                        count = ("Spectrum File", "count")).reset_index()
+
+badPSM["rt_range"] = badPSM["rt_max"] - badPSM["rt_min"]
+# allPSM["missingValueRate"] = 100* (total_files - allPSM["count"]) / total_files
+badPSM["mz_error"] = (badPSM["mz"] - badPSM["mz_calc"]) / badPSM["mz_calc"]
 
 #Adds the proteins and peptides in order of increasing confidence
 InclusionList = pd.DataFrame({"Compound": [],
@@ -80,14 +102,7 @@ Peptides_Included = []
 Peptides_Excluded = []
 TimesSeen = {}
 
-ExclusionList = pd.DataFrame({"Compound": [],
-                              "Formula": [],
-                              "Adduct": [],
-                              "m/z": [],
-                              "z": [],
-                              "RT Time (min)": [],
-                              "Window (min)": []
-                              })
+
 
 for index, eachRow in allPSM.iterrows():
     currentProtein = eachRow["protein"]
@@ -131,6 +146,43 @@ for index, eachRow in allPSM.iterrows():
         if newRow["RT Time (min)"][0] >= GRADIENT_LENGTH - RT_WINDOW/2: #ELUTES TOO LATE
             newRow["RT Time (min)"] = [GRADIENT_LENGTH - (RT_WINDOW/2 + 0.01)]
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
+
+        
+ExclusionList = pd.DataFrame({"Compound": [],
+                              "Formula": [],
+                              "Adduct": [],
+                              "m/z": [],
+                              "z": [],
+                              "RT Time (min)": [],
+                              "Window (min)": []
+                              })
+
+
+for index, eachRow in badPSM.iterrows():
+    currentProtein = eachRow["protein"]
+    currentProtein = re.sub("contam_sp\\|","", currentProtein)
+    currentProtein = re.sub("sp\\|","", currentProtein)
+    currentProtein = re.sub("\\|.*","",currentProtein)
+    currentSequence = eachRow["Peptide"]
+    if currentSequence not in Peptides_Included:
+        if currentProtein not in TimesSeen.keys():
+            TimesSeen[currentProtein] = 0
+        TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
+        Peptides_Included.append(currentSequence)
+        newRow = {"Compound": [str(currentProtein)+ "_" + str(TimesSeen[currentProtein])],
+                  "Formula": [currentSequence],
+                  "Adduct": [ADDUCT],
+                  "m/z": [eachRow["mz"]],
+                  "z": [int(eachRow["charge"])],
+                  "RT Time (min)": [eachRow["retention"]],
+                  "Window (min)": [RT_WINDOW]
+                  }
+        if newRow["RT Time (min)"][0] <= RT_WINDOW/2: #ELUTES TOO SOON
+            newRow["RT Time (min)"] = [RT_WINDOW/2 + 0.01]
+        if newRow["RT Time (min)"][0] >= GRADIENT_LENGTH - RT_WINDOW/2: #ELUTES TOO LATE
+            newRow["RT Time (min)"] = [GRADIENT_LENGTH - (RT_WINDOW/2 + 0.01)]
+        ExclusionList = pd.concat([ExclusionList, pd.DataFrame(newRow)], ignore_index = True)
+
     
 
 #Print number of proteins with each number of identifications
