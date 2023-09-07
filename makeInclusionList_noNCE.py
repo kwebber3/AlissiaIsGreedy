@@ -13,6 +13,7 @@ import re
 #EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv" 
 FragPipe_Results_PATH = "TMT_Code_Test"  #LFQ
 INC_OUTPUT_FILE_NAME = "test-TMT_Inclusion_List_FP.csv"
+EXC_OUTPUT_FILE_NAME = "test-TMT_Exclusion_List_FP.csv"
 
 #Compound names
 PEPTIDES_PER_PROTEIN = 2
@@ -22,7 +23,6 @@ ADDUCT = "+H" #Almost always true
 RT_WINDOW = 1.5 #Dr. Kelly says this is a good amount
 ppm_mass_tolerance = 1
 GRADIENT_LENGTH = 20
-TOLERANCE_FACTOR = 10
 
 #Import data
 
@@ -39,12 +39,12 @@ for eachFolder in run_folders:
 
 print(allPSM.shape)
 # filter data
+#exclusion list
 badPSM = allPSM[(allPSM["Protein"].str.contains("contam_sp")) |
-                # (allPSM["PeptideProphet Probability"] < 0.99) &
                 (allPSM["Is Unique"] == False) |
                 (allPSM["Number of Missed Cleavages"] > 0)]
 
-
+#inclusion list
 allPSM = allPSM[~(allPSM["Protein"].str.contains("contam_sp")) &
                 # (allPSM["PeptideProphet Probability"] >= 0.99) &
                 (allPSM["Is Unique"] == True) &
@@ -54,6 +54,7 @@ allPSM = allPSM[~(allPSM["Protein"].str.contains("contam_sp")) &
 print(allPSM.shape)
 print(badPSM.shape)
 
+#combining data for replicate psms for each peptide
 allPSM = allPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0]),
                                         conf = ("PeptideProphet Probability","mean"),                                       
                                         retention = ("Retention", "mean"),
@@ -69,7 +70,7 @@ allPSM["rt_range"] = allPSM["rt_max"] - allPSM["rt_min"]
 # allPSM["missingValueRate"] = 100* (total_files - allPSM["count"]) / total_files
 allPSM["mz_error"] = (allPSM["mz"] - allPSM["mz_calc"]) / allPSM["mz_calc"]
 
-# allPSM = allPSM[(allPSM["missingValueRate"] <= 30)]
+# allPSM = allPSM[(allPSM["missingValueRate"] >= 0)]
 allPSM = allPSM.sort_values(by="conf",ascending=False)
 
 badPSM = badPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0]),
@@ -145,7 +146,8 @@ for index, eachRow in allPSM.iterrows():
         if newRow["RT Time (min)"][0] >= GRADIENT_LENGTH - RT_WINDOW/2: #ELUTES TOO LATE
             newRow["RT Time (min)"] = [GRADIENT_LENGTH - (RT_WINDOW/2 + 0.01)]
         InclusionList = pd.concat([InclusionList, pd.DataFrame(newRow)], ignore_index = True)
-
+    else:
+        pass
         
 ExclusionList = pd.DataFrame({"Compound": [],
                               "Formula": [],
@@ -159,7 +161,7 @@ ExclusionList = pd.DataFrame({"Compound": [],
 
 for index, eachRow in badPSM.iterrows():
     currentProtein = eachRow["protein"]
-    currentProtein = re.sub("contam_sp\\|","", currentProtein)
+    currentProtein = re.sub("contam_","", currentProtein)
     currentProtein = re.sub("sp\\|","", currentProtein)
     currentProtein = re.sub("\\|.*","",currentProtein)
     currentSequence = eachRow["Peptide"]
@@ -193,3 +195,4 @@ print(len(ExclusionList)) #peptides excluded
 
 #Export to csv
 InclusionList.to_csv(INC_OUTPUT_FILE_NAME, index=False)
+ExclusionList.to_csv(EXC_OUTPUT_FILE_NAME, index=False)
