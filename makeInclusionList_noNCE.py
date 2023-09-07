@@ -14,14 +14,13 @@ import re
 FragPipe_Results_PATH = "TMT_Code_Test"  #LFQ
 INC_OUTPUT_FILE_NAME = "test-TMT_Inclusion_List_FP.csv"
 EXC_OUTPUT_FILE_NAME = "test-TMT_Exclusion_List_FP.csv"
-
+PEAK_OUTPUT_FILE_NAME = "test-TMT_Peaks_FP.csv"
 #Compound names
 PEPTIDES_PER_PROTEIN = 2
 
 #output assumptions
 ADDUCT = "+H" #Almost always true
 RT_WINDOW = 1.5 #Dr. Kelly says this is a good amount
-ppm_mass_tolerance = 1
 GRADIENT_LENGTH = 20
 
 #Import data
@@ -72,6 +71,7 @@ allPSM["mz_error"] = (allPSM["mz"] - allPSM["mz_calc"]) / allPSM["mz_calc"]
 
 # allPSM = allPSM[(allPSM["missingValueRate"] >= 0)]
 allPSM = allPSM.sort_values(by="conf",ascending=False)
+allPSM.to_csv(PEAK_OUTPUT_FILE_NAME,index=False)
 
 badPSM = badPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0]),
                                         conf = ("PeptideProphet Probability","mean"),                                       
@@ -103,7 +103,7 @@ Peptides_Excluded = []
 TimesSeen = {}
 
 
-
+#populate inclusion list
 for index, eachRow in allPSM.iterrows():
     currentProtein = eachRow["protein"]
     currentProtein = re.sub("sp\\|","", currentProtein)
@@ -157,8 +157,7 @@ ExclusionList = pd.DataFrame({"Compound": [],
                               "RT Time (min)": [],
                               "Window (min)": []
                               })
-
-
+#populate exclusion list
 for index, eachRow in badPSM.iterrows():
     currentProtein = eachRow["protein"]
     currentProtein = re.sub("contam_","", currentProtein)
