@@ -185,7 +185,7 @@ for index, eachRow in badPSM.iterrows():
             TimesSeen[currentProtein] = 0
         TimesSeen[currentProtein] = TimesSeen[currentProtein] + 1
         Peptides_Included.append(currentSequence)
-        newRow = {"Compound": [str(currentProtein)+ "_" + str(TimesSeen[currentProtein])],
+        newRow = {"Compound": [str(currentProtein)+ "_"+ currentSequence + "_" + str(TimesSeen[currentProtein])],
                   "Formula": [""],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
