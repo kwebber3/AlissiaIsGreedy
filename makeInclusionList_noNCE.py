@@ -17,6 +17,7 @@ from numpy import nanstd
 FragPipe_Results_PATH = "CH2"  #LFQ
 INC_OUTPUT_FILE_NAME = "test-TMT_Inclusion_List_CH2_90s.csv"
 EXC_OUTPUT_FILE_NAME = "test-TMT_Exclusion_List_CH2_90s.csv"
+PROT_OUTPUT_FILE_NAME = "proteins-Ch2.csv"
 PEAK_OUTPUT_FILE_NAME = "test-TMT_Peaks.csv"
 #Compound names
 PEPTIDES_PER_PROTEIN = 2
@@ -213,5 +214,6 @@ InclusionList["z"] = InclusionList["z"].astype(str).str.replace('\.[0-9]+', '',r
 ExclusionList["z"] = ExclusionList["z"].astype(str).str.replace('\.[0-9]+', '',regex=True)
 
 #Export to csv
+pd.DataFrame({"Accession": Proteins_Included}).to_csv(PROT_OUTPUT_FILE_NAME, index=False,encoding="ASCII")
 InclusionList.to_csv(INC_OUTPUT_FILE_NAME, index=False,encoding="ASCII")
 ExclusionList.to_csv(EXC_OUTPUT_FILE_NAME, index=False,encoding="ASCII")
