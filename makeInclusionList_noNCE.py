@@ -14,10 +14,10 @@ from numpy import nanstd
 #PSM_FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
 #INC_OUTPUT_FILE_NAME = "TMT_Inclusion_List.csv" 
 #EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv" 
-FragPipe_Results_PATH = "CH2"  #LFQ
-INC_OUTPUT_FILE_NAME = "test-TMT_Inclusion_List_CH2_90s.csv"
-EXC_OUTPUT_FILE_NAME = "test-TMT_Exclusion_List_CH2_90s.csv"
-PROT_OUTPUT_FILE_NAME = "proteins-Ch2.csv"
+FragPipe_Results_PATH = "all"  #LFQ
+INC_OUTPUT_FILE_NAME = "test-TMT_Inclusion_List_90s.csv"
+EXC_OUTPUT_FILE_NAME = "test-TMT_Exclusion_List_90s.csv"
+PROT_OUTPUT_FILE_NAME = "proteins.csv"
 PEAK_OUTPUT_FILE_NAME = "test-TMT_Peaks.csv"
 #Compound names
 PEPTIDES_PER_PROTEIN = 2
@@ -87,7 +87,7 @@ badPSM = badPSM.groupby("Peptide").agg( protein = ("Protein", lambda x: x.iloc[0
                                         rt_stdev = ("Retention", nanstd),
                                         rt_max = ("Retention", "max"),
                                         rt_min = ("Retention", "min"),
-                                        mz = ("Observed M/Z", nanmean),
+                                        mz = ("Observed M/Z", nanmean), 
                                         mz_calc = ("Calculated M/Z", nanmean),
                                         charge = ("Charge", nanmean),
                                         count = ("Spectrum File", "count")).reset_index()

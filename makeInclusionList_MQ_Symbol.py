@@ -14,7 +14,7 @@ from numpy import nanstd
 #PSM_FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
 #INC_OUTPUT_FILE_NAME = "TMT_Inclusion_List.csv" 
 #EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv" 
-PEPTIDE_INPUT_FILE = "peptides.txt"  #LFQ
+PEPTIDE_INPUT_FILE = "msms 1.txt"  #LFQ
 INC_OUTPUT_FILE_NAME = "test-MQ-Inclusion_90s.csv"
 EXC_OUTPUT_FILE_NAME = "test-MQ-Exclusion_90s.csv"
 PROT_OUTPUT_FILE_NAME = "proteins_symbols_MQ.csv"
@@ -25,7 +25,7 @@ PEPTIDES_PER_PROTEIN = 2
 #output assumptions
 ADDUCT = "+H" #Almost always true
 RT_WINDOW = 1.5 #Dr. Kelly says this is a good amount
-GRADIENT_LENGTH = 20
+GRADIENT_LENGTH = 60
 MAX_MASS = 1600
 MIN_MASS = 375
 NCE = 45
@@ -36,34 +36,33 @@ allPSM = pd.read_table(PEPTIDE_INPUT_FILE,sep="\t")
 print(allPSM.shape)
 # filter data
 #exclusion list
-badPSM = allPSM[((allPSM["Potential contaminant"]=="+") |
-                (allPSM["Unique (Proteins)"] == "no") |
-                (allPSM["Missed cleavages"] > 0)) &
-                ~(allPSM["Charges"].str.contains(";",na=False))] # multiple charges are too hard to deal with, even if they are bad
+badPSM = allPSM[((allPSM["Contaminant"]=="+") |
+                # (allPSM["Unique (Proteins)"] == "no") |
+                (allPSM["Missed cleavages"] > 0))] # multiple Charge are too hard to deal with, even if they are bad
 print(badPSM.shape)
 
 
-print(allPSM["Potential contaminant"]=="+")
+# print(allPSM["Contaminant"]=="+")
 
 #inclusion list
-allPSM = allPSM[(allPSM["Potential contaminant"]!="+") &
+allPSM = allPSM[(allPSM["Contaminant"]!="+") &
                 # (allPSM["PeptideProphet Probability"] >= 0.99) &
-                (allPSM["Unique (Proteins)"] == "yes") &
-                (allPSM["Missed cleavages"] == 0) &
-                ~(allPSM["Charges"].str.contains(";",na=False))]
+                # (allPSM["Unique (Proteins)"] == "yes") &
+                (allPSM["Missed cleavages"] == 0) &                
+                ~(allPSM["Gene Names"].str.contains(";", na=False))]
 
 
 print(allPSM.shape)
 
 # print(allPSM["Retention"])
 #combining data for replicate psms for each peptide
-allPSM = allPSM.groupby("Sequence").agg( protein = ("Gene names", "first"),
+allPSM = allPSM.groupby("Sequence").agg( protein = ("Gene Names", "first"),
                                         conf = ("Score",nanmean),                                       
-                                        retention = ("Start position", nanmean),
-                                        rt_stdev = ("Start position", nanstd),
-                                        rt_max = ("Start position", "max"),
-                                        rt_min = ("Start position", "min"),
-                                        charge = ("Charges", "first"),
+                                        retention = ("Retention time", nanmean),
+                                        rt_stdev = ("Retention time", nanstd),
+                                        rt_max = ("Retention time", "max"),
+                                        rt_min = ("Retention time", "min"),
+                                        charge = ("Charge", "first"),
                                         mass = ("Mass", "first")).reset_index()
 # print(allPSM["retention"])
 allPSM["rt_range"] = allPSM["rt_max"] - allPSM["rt_min"]
@@ -76,13 +75,13 @@ allPSM = allPSM.sort_values(by="conf",ascending=False)
 allPSM.to_csv(PEAK_OUTPUT_FILE_NAME,index=False)
 allPSM = allPSM.dropna(subset=["protein"])
 
-badPSM = badPSM.groupby("Sequence").agg( protein = ("Gene names", "first"),
+badPSM = badPSM.groupby("Sequence").agg( protein = ("Gene Names", "first"),
                                         conf = ("Score",nanmean),                                       
-                                        retention = ("Start position", nanmean),
-                                        rt_stdev = ("Start position", nanstd),
-                                        rt_max = ("Start position", "max"),
-                                        rt_min = ("Start position", "min"),
-                                        charge = ("Charges", "first"),
+                                        retention = ("Retention time", nanmean),
+                                        rt_stdev = ("Retention time", nanstd),
+                                        rt_max = ("Retention time", "max"),
+                                        rt_min = ("Retention time", "min"),
+                                        charge = ("Charge", "first"),
                                         mass = ("Mass", "first")).reset_index()
 
 badPSM["rt_range"] = badPSM["rt_max"] - badPSM["rt_min"]
@@ -125,7 +124,7 @@ for index, eachRow in allPSM.iterrows():
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
                   "z": [int(eachRow["charge"])],
-                  "RT Time (min)": [eachRow["retention"]/60],
+                  "RT Time (min)": [eachRow["retention"]], #already in minutes
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [NCE]
                   }
@@ -139,12 +138,13 @@ for index, eachRow in allPSM.iterrows():
         Peptides_Included.append(currentSequence)
         if TimesSeen[currentProtein] >= PEPTIDES_PER_PROTEIN:
             Proteins_Full.append(currentProtein)
+        print(eachRow["retention"])
         newRow = {"Compound": [str(currentProtein)+ "_" +str(TimesSeen[currentProtein])],
                   "Formula": [""],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
                   "z": [eachRow["charge"]],
-                  "RT Time (min)": [eachRow["retention"]/60],
+                  "RT Time (min)": [eachRow["retention"]],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [NCE]
                   }
@@ -185,7 +185,7 @@ for index, eachRow in badPSM.iterrows():
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
                   "z": [int(eachRow["charge"])],
-                  "RT Time (min)": [eachRow["retention"]/60],
+                  "RT Time (min)": [eachRow["retention"]],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [NCE]
                   }
