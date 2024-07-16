@@ -14,83 +14,87 @@ from numpy import nanstd
 #PSM_FILE_PATH_AND_NAME = "TMT_HCD_Study_PSMs.txt"    #TMT
 #INC_OUTPUT_FILE_NAME = "TMT_Inclusion_List.csv" 
 #EXC_OUTPUT_FILE_NAME = "TMT_Exclusion_List.csv" 
-PEPTIDE_INPUT_FILE = "msms 1.txt"  #LFQ
-INC_OUTPUT_FILE_NAME = "test-MQ-Inclusion_90s.csv"
-EXC_OUTPUT_FILE_NAME = "test-MQ-Exclusion_90s.csv"
-PROT_OUTPUT_FILE_NAME = "proteins_symbols_MQ.csv"
-PEAK_OUTPUT_FILE_NAME = "test-MQ-90s_Peaks.csv"
+FragPipe_Results_PATH = "FragPipe_Output"  #LFQ
+INC_OUTPUT_FILE_NAME = "test-TMT_Inclusion_List_90s.csv"
+EXC_OUTPUT_FILE_NAME = "test-TMT_Exclusion_List_90s.csv"
+PROT_OUTPUT_FILE_NAME = "proteins_symbols_v21.csv"
+PEAK_OUTPUT_FILE_NAME = "test-TMT_Peaks.csv"
 #Compound names
 PEPTIDES_PER_PROTEIN = 2
 
 #output assumptions
 ADDUCT = "+H" #Almost always true
 RT_WINDOW = 1.5 #Dr. Kelly says this is a good amount
-GRADIENT_LENGTH = 60
+GRADIENT_LENGTH = 20
 MAX_MASS = 1600
 MIN_MASS = 375
-NCE = 45
-
-
-
+NCE = 35
 #Import data
 
-allPSM = pd.read_table(PEPTIDE_INPUT_FILE,sep="\t")
-    
+run_folders = [x[0] for x in os.walk(FragPipe_Results_PATH)]
+# print(run_folders)
+run_folders.remove(FragPipe_Results_PATH)
+run_folders.remove(FragPipe_Results_PATH+"\\tmt-report")
+allPSM = pd.DataFrame()
+total_files = 0
+for eachFolder in run_folders:
+    currentPSM = pd.read_table(eachFolder+"\\psm.tsv",sep="\t")
+    allPSM = pd.concat([allPSM,currentPSM])
+    total_files = total_files + 1
+
 print(allPSM.shape)
 # filter data
 #exclusion list
-badPSM = allPSM[((allPSM["Contaminant"]=="+") |
-                # (allPSM["Unique (Proteins)"] == "no") |
-                (allPSM["Missed cleavages"] > 0))] # multiple Charge are too hard to deal with, even if they are bad
-print(badPSM.shape)
-
-
-# print(allPSM["Contaminant"]=="+")
+badPSM = allPSM[(allPSM["Protein"].str.contains("contam_sp")) |
+                (allPSM["Is Unique"] == False) |
+                (allPSM["Number of Missed Cleavages"] > 0)]
 
 #inclusion list
-allPSM = allPSM[(allPSM["Contaminant"]!="+") &
+allPSM = allPSM[~(allPSM["Protein"].str.contains("contam_sp")) &
                 # (allPSM["PeptideProphet Probability"] >= 0.99) &
-                # (allPSM["Unique (Proteins)"] == "yes") &
-                (allPSM["Missed cleavages"] == 0) &                
-                ~(allPSM["Gene Names"].str.contains(";", na=False))] #unique protein, only one mapped
+                (allPSM["Is Unique"] == True) &
+                (allPSM["Number of Missed Cleavages"] == 0)]
 
 
 print(allPSM.shape)
+print(badPSM.shape)
 
+# print(allPSM["Retention"])
 #combining data for replicate psms for each peptide
-allPSM = allPSM.groupby("Sequence").agg( protein = ("Gene Names", "first"),
-                                        conf = ("Score",nanmean),                                       
-                                        retention = ("Retention time", nanmean),
-                                        rt_stdev = ("Retention time", nanstd),
-                                        rt_max = ("Retention time", "max"),
-                                        rt_min = ("Retention time", "min"),
+allPSM = allPSM.groupby("Peptide").agg( protein = ("Gene", "first"),
+                                        conf = ("PeptideProphet Probability",nanmean),                                       
+                                        retention = ("Retention", nanmean),
+                                        rt_stdev = ("Retention", nanstd),
+                                        rt_max = ("Retention", "max"),
+                                        rt_min = ("Retention", "min"),
+                                        mz = ("Observed M/Z", "first"),
+                                        mz_calc = ("Calculated M/Z", "first"),
                                         charge = ("Charge", "first"),
-                                        mass = ("Mass", "first")).reset_index()
+                                        count = ("Spectrum File", "count")).reset_index()
 # print(allPSM["retention"])
 allPSM["rt_range"] = allPSM["rt_max"] - allPSM["rt_min"]
 # allPSM["missingValueRate"] = 100* (total_files - allPSM["count"]) / total_files
-allPSM["mz"] = allPSM["mass"] / allPSM["charge"].astype(int)
+allPSM["mz_error"] = (allPSM["mz"] - allPSM["mz_calc"]) / allPSM["mz_calc"]
 allPSM = allPSM[(allPSM["mz"]>MIN_MASS)&(allPSM["mz"]<MAX_MASS)]
 
 # allPSM = allPSM[(allPSM["missingValueRate"] >= 0)]
 allPSM = allPSM.sort_values(by="conf",ascending=False)
 allPSM.to_csv(PEAK_OUTPUT_FILE_NAME,index=False)
-allPSM = allPSM.dropna(subset=["protein"])
 
-#summarize for exclusion
-badPSM = badPSM.groupby("Sequence").agg( protein = ("Gene Names", "first"),
-                                        conf = ("Score",nanmean),                                       
-                                        retention = ("Retention time", nanmean),
-                                        rt_stdev = ("Retention time", nanstd),
-                                        rt_max = ("Retention time", "max"),
-                                        rt_min = ("Retention time", "min"),
+badPSM = badPSM.groupby("Peptide").agg( protein = ("Gene", "first"),
+                                        conf = ("PeptideProphet Probability",nanmean),                                       
+                                        retention = ("Retention", nanmean),
+                                        rt_stdev = ("Retention", nanstd),
+                                        rt_max = ("Retention", "max"),
+                                        rt_min = ("Retention", "min"),
+                                        mz = ("Observed M/Z", "first"), 
+                                        mz_calc = ("Calculated M/Z", "first"),
                                         charge = ("Charge", "first"),
-                                        mass = ("Mass", "first")).reset_index()
+                                        count = ("Spectrum File", "count")).reset_index()
 
 badPSM["rt_range"] = badPSM["rt_max"] - badPSM["rt_min"]
-badPSM["mz"] = (badPSM["mass"]) / badPSM["charge"].dropna().astype(int)
+badPSM["mz_error"] = (badPSM["mz"] - badPSM["mz_calc"]) / badPSM["mz_calc"]
 badPSM = badPSM[(badPSM["mz"]>MIN_MASS)&(badPSM["mz"]<MAX_MASS)]
-badPSM = badPSM.dropna(subset=["protein"])
 
 
 #Adds the proteins and peptides in order of increasing confidence
@@ -115,7 +119,7 @@ for index, eachRow in allPSM.iterrows():
     currentProtein = eachRow["protein"]
     currentProtein = re.sub("sp\\|","", currentProtein)
     currentProtein = re.sub("\\|.*","",currentProtein)
-    currentSequence = eachRow["Sequence"]
+    currentSequence = eachRow["Peptide"]
     if currentProtein not in Proteins_Included and currentSequence not in Peptides_Included:
         Proteins_Included.append(currentProtein)
         Peptides_Included.append(currentSequence)
@@ -127,7 +131,7 @@ for index, eachRow in allPSM.iterrows():
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
                   "z": [int(eachRow["charge"])],
-                  "RT Time (min)": [eachRow["retention"]], #already in minutes
+                  "RT Time (min)": [eachRow["retention"]/60],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [NCE]
                   }
@@ -141,13 +145,12 @@ for index, eachRow in allPSM.iterrows():
         Peptides_Included.append(currentSequence)
         if TimesSeen[currentProtein] >= PEPTIDES_PER_PROTEIN:
             Proteins_Full.append(currentProtein)
-        print(eachRow["retention"])
         newRow = {"Compound": [str(currentProtein)+ "_" +str(TimesSeen[currentProtein])],
                   "Formula": [""],
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
                   "z": [eachRow["charge"]],
-                  "RT Time (min)": [eachRow["retention"]],
+                  "RT Time (min)": [eachRow["retention"]/60],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [NCE]
                   }
@@ -177,7 +180,7 @@ for index, eachRow in badPSM.iterrows():
     currentProtein = re.sub("contam_","", str(currentProtein))
     currentProtein = re.sub("sp\\|","", currentProtein)
     currentProtein = re.sub("\\|.*","",currentProtein)
-    currentSequence = eachRow["Sequence"]
+    currentSequence = eachRow["Peptide"]
     if currentSequence not in Peptides_Included:
         if currentProtein not in TimesSeen.keys():
             TimesSeen[currentProtein] = 0
@@ -188,7 +191,7 @@ for index, eachRow in badPSM.iterrows():
                   "Adduct": [ADDUCT],
                   "m/z": [eachRow["mz"]],
                   "z": [int(eachRow["charge"])],
-                  "RT Time (min)": [eachRow["retention"]],
+                  "RT Time (min)": [eachRow["retention"]/60],
                   "Window (min)": [RT_WINDOW],
                   "HCD Collision Energies (%)": [NCE]
                   }
@@ -207,7 +210,6 @@ print(len(Proteins_Full)) # 2nd peptide
 print(len(InclusionList.index)) # Total peptides
 print(len(ExclusionList)) #peptides excluded
 
-#format charge as an integer
 InclusionList["z"] = InclusionList["z"].astype(str).str.replace('\.[0-9]+', '',regex=True)
 ExclusionList["z"] = ExclusionList["z"].astype(str).str.replace('\.[0-9]+', '',regex=True)
 
