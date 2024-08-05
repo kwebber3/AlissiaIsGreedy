@@ -28,7 +28,7 @@ RT_WINDOW = 1.5 #Dr. Kelly says this is a good amount
 GRADIENT_LENGTH = 20
 MAX_MASS = 1600
 MIN_MASS = 375
-NCE = 35
+NCE = 40
 #Import data
 
 run_folders = [x[0] for x in os.walk(FragPipe_Results_PATH)]
